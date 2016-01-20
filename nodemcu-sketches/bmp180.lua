@@ -1,12 +1,15 @@
 ------------------------------------------------------------------------------
 -- BMP180 query module
+--
 -- dofile("bmp180.lua").help()
+--
 -- bmp = dofile("bmp180.lua")
 -- isok = bmp.init(sda, scl, oss)
 -- {temp, pa, hgmm, alt} = bmp.read()
 ------------------------------------------------------------------------------
 local M
 do
+  -- cache
   local i2c, tmr, print = i2c, tmr, print
 
   -- helpers
