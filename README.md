@@ -45,3 +45,8 @@ Supported commands:
   * `lswifi` - lists available Wi-Fi access points
   * `wifi SSID PASS` - connects to access point (it will brake Telnet connection)
   * `reboot` - reboots device
+
+Tips:
+  * port is default for Telnet server: 23
+  * number in the prompt shows available heap
+  * server is written with coroutines - it is the only working way for me to eliminate nasty memory leak with server example from docs
