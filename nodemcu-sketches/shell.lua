@@ -8,7 +8,7 @@ do
     for name, size in pairs( file.list() ) do
       coroutine.yield( string.format( "%7d %s\n", size, name ) )
     end
-    local _, used, left = file.fsinfo()
+    local left, used, _ = file.fsinfo()
     coroutine.yield( string.format( "\n%7d used\n%7d left\n", used, left ) )
   end
 
