@@ -1,3 +1,6 @@
+-- dofile("wget.lua").wget("https://example.com/path/target.file")
+-- dofile("wget.lua").wget("https://example.com/path/target.file", "dest.file")
+
 local M = {}
 do
   local host, port, path, filename
