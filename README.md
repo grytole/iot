@@ -50,3 +50,9 @@ Tips:
   * port is default for Telnet server: 23
   * number in the prompt shows available heap
   * server is written with coroutines - it is the only working way for me to eliminate nasty memory leak with server example from docs
+
+#### Wget module - HTTP/HTTPS file downloader
+```
+dofile("wget.lua").wget("https://example.com/path/target.file")
+dofile("wget.lua").wget("https://example.com/path/target.file", "dest.file")
+```
