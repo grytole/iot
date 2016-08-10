@@ -31,6 +31,53 @@ do
     end
   end
 
+  local head = function( filename )
+    local filename = filename or ""
+    if not file.exists( filename ) then
+      coroutine.yield( string.format( "file '%s' does not exist\n", filename ) )
+    else
+      file.open( filename, "r" )
+      for i = 1, 10 do
+        local line = file.readline()
+        if line then
+          coroutine.yield( line )
+        else
+          break
+        end
+      end
+      file.close()
+    end
+  end
+
+  local tail = function( filename )
+    local filename = filename or ""
+    if not file.exists( filename ) then
+      coroutine.yield( string.format( "file '%s' does not exist\n", filename ) )
+    else
+      local done, lines = false, 0
+      file.open( filename, "r" )
+      while not done do
+        if file.readline() then
+          lines = lines + 1
+        else
+          done = true
+        end
+      end
+      file.seek( "set", 0 )
+      for i = 1, lines do
+        local line = file.readline()
+        if line then
+          if i > lines - 10 then
+            coroutine.yield( line )
+          end
+        else
+          break
+        end
+      end
+      file.close()
+    end
+  end
+
   local mv = function( src, dst )
     local src = src or ""
     local dst = dst or ""
@@ -152,6 +199,10 @@ do
       ls()
     elseif argv[ 1 ] == "cat" then
       cat( argv[ 2 ] )
+    elseif argv[ 1 ] == "head" then
+      head( argv[ 2 ] )
+    elseif argv[ 1 ] == "tail" then
+      tail( argv[ 2 ] )
     elseif argv[ 1 ] == "mv" then
       mv( argv[ 2 ], argv[ 3 ] )
     elseif argv[ 1 ] == "cp" then
@@ -169,7 +220,7 @@ do
     end
   end
 
-  shell_server = net.createServer( net.TCP, 180 )
+  shell_server = net.createServer( net.TCP, 600 )
   shell_server:listen( 23, function( lc )
     local cmd, ongoing = {}, false
     lc:on( "receive", function( rc, payload )
