@@ -43,6 +43,7 @@ Supported commands:
   * `mv SRC DEST` - renames file (rewrite of existing file is forbidden)
   * `cp SRC DEST` - creates a copy of file (rewrite of existing file is forbidden)
   * `rm FILENAME` - removes file
+  * `grep REGEXP [FILENAME]` - searches lua-style regexp pattern in file (supports wildcards and defaults to `*`)
   * `whoami` - shows device params (ip settings, MAC address, NodeMCU version, chip id, flash size)
   * `lswifi` - lists available Wi-Fi access points
   * `wifi SSID PASS` - connects to access point (it will brake Telnet connection)
