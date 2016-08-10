@@ -38,6 +38,8 @@ dofile("shell.lua")
 Supported commands:
   * `ls` - lists files stored on flash with their size, also provides summary for file system
   * `cat FILENAME` - prints contents of file
+  * `head FILENAME` - prints first 10 lines of file
+  * `tail FILENAME` = prints last 10 lines of file
   * `mv SRC DEST` - renames file (rewrite of existing file is forbidden)
   * `cp SRC DEST` - creates a copy of file (rewrite of existing file is forbidden)
   * `rm FILENAME` - removes file
