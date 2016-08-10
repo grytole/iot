@@ -1,7 +1,13 @@
 do
+  local esc = string.char( 27 )
+  local c_bold = esc .. "[1m"
+  local c_red = esc .. "[31m"
+  local c_pink = esc .. "[35m"
+  local c_reset = esc .. "[0m"
+
   local prompt = function()
     local heap = string.format( "%05s", node.heap() )
-    return string.char( 27 ) .. "[31m" .. heap .." $" .. string.char( 27 ) .. "[0m "
+    return c_red .. heap .." $ " .. c_reset
   end
 
   local ls = function()
@@ -130,6 +136,45 @@ do
     end
   end
 
+  local grep = function( regexp, filename )
+    local filename = filename or "*"
+    local filelist = {}
+    if not regexp then
+      return
+    elseif file.exists( filename ) then
+      table.insert( filelist, filename )
+    elseif filename:match( "[%*%?]" ) then
+      local wildcards = {
+        [ "." ] = "%.",
+        [ "*" ] = ".*",
+        [ "?" ] = "."
+      }
+      local pattern = "^" .. filename:gsub( "([%.%*%?])", wildcards ) .. "$"
+      for name, _ in pairs( file.list() ) do
+        if name:match( pattern ) then
+          table.insert( filelist, name )
+        end
+      end
+    end
+    for _, name in ipairs( filelist ) do
+      local done, linenum = false, 0
+      file.open( name, "r" )
+      while not done do
+        local line = file.readline()
+        if line then
+          linenum = linenum + 1
+          local hit = line:match( regexp )
+          if hit then
+            coroutine.yield( c_pink .. name .. ":" .. linenum .. ":" .. c_reset .. line:gsub( hit, c_bold .. hit .. c_reset ) )
+          end
+        else
+          done = true
+        end
+      end
+      file.close()
+    end
+  end
+
   local whoami = function()
     local ipaddr, netmask, gateway = wifi.sta.getip()
     local majorver, minorver, devver, chipid, _, flashsize, _, _ = node.info()
@@ -209,6 +254,8 @@ do
       cp( argv[ 2 ], argv[ 3 ] )
     elseif argv[ 1 ] == "rm" then
       rm( argv[ 2 ] )
+    elseif argv[ 1 ] == "grep" then
+      grep( argv[ 2 ], argv[ 3 ] )
     elseif argv[ 1 ] == "whoami" then
       whoami()
     elseif argv[ 1 ] == "lswifi" then
