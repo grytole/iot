@@ -46,7 +46,7 @@ Supported commands:
   * `grep REGEXP [FILENAME]` - searches lua-style regexp pattern in file (supports wildcards and defaults to `*`)
   * `whoami` - shows device params (ip settings, MAC address, NodeMCU version, chip id, flash size)
   * `lswifi` - lists available Wi-Fi access points
-  * `wifi SSID PASS` - connects to access point (it will brake Telnet connection)
+  * `wifi SSID PASS` - connects to access point (it will break Telnet connection)
   * `reboot` - reboots device
 
 Tips:
