@@ -1,13 +1,13 @@
 do
-  local esc = string.char( 27 )
-  local c_bold = esc .. "[1m"
-  local c_red = esc .. "[31m"
-  local c_pink = esc .. "[35m"
-  local c_reset = esc .. "[0m"
+  local esc = function( arg )
+    local sgr = { r = 31, g = 32, b = 34, c = 36, m = 35, y = 33, k = 30, w = 37 }
+    local code = sgr[ arg ] or 0
+    return "\027[" .. code .. "m"
+  end
 
   local prompt = function()
     local heap = string.format( "%05s", node.heap() )
-    return c_red .. heap .." $ " .. c_reset
+    return esc( "g" ) .. heap .." $ " .. esc()
   end
 
   local ls = function()
@@ -165,7 +165,8 @@ do
           linenum = linenum + 1
           local hit = line:match( regexp )
           if hit then
-            coroutine.yield( c_pink .. name .. ":" .. linenum .. ":" .. c_reset .. line:gsub( hit, c_bold .. hit .. c_reset ) )
+            local info = esc( "m" ) .. name .. esc( "c" ) .. ":" .. esc( "m" ) .. linenum .. esc( "c" ) .. ":" .. esc()
+            coroutine.yield( info .. line:gsub( hit, esc( "r" ) .. hit .. esc() ) )
           end
         else
           done = true
