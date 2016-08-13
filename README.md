@@ -37,22 +37,22 @@ dofile("shell.lua")
 ```
 Supported commands:
   * `ls` - lists files stored on flash with their size, also provides summary for file system
-  * `cat FILENAME` - prints contents of file
-  * `head FILENAME` - prints first 10 lines of file
-  * `tail FILENAME` - prints last 10 lines of file
-  * `mv SRC DEST` - renames file (rewrite of existing file is forbidden)
-  * `cp SRC DEST` - creates a copy of file (rewrite of existing file is forbidden)
-  * `rm FILENAME` - removes file
-  * `grep REGEXP [FILENAME]` - searches lua-style regexp pattern in file (supports wildcards and defaults to `*`)
+  * `cat FILENAME` - prints contents of file FILENAME
+  * `head FILENAME [NUMLINES]` - prints first NUMLINES lines (default is 10) of file FILENAME
+  * `tail FILENAME [NUMLINES]` - prints last NUMLINES lines (default is 10) of file FILENAME
+  * `mv SRC DEST` - renames file SRC to DEST (rewrite of existing file is forbidden)
+  * `cp SRC DEST` - creates a copy of file SRC as DEST (rewrite of existing file is forbidden)
+  * `rm FILENAME` - removes file FILENAME
+  * `grep REGEXP [FILENAME]` - searches lua-style REGEXP pattern in file FILENAME (FILENAME supports wildcards and defaults to `*`)
   * `whoami` - shows device params (ip settings, MAC address, NodeMCU version, chip id, flash size)
-  * `lswifi` - lists available Wi-Fi access points
-  * `wifi SSID PASS` - connects to access point (it will break Telnet connection)
+  * `iw CMD [ARG1 [ARG2]]` - Wi-Fi tool. 'scan' as CMD starts AP search (`iw scan`). 'connect' as CMD tries to connect to AP (`iw connect ssid password`).
   * `reboot` - reboots device
 
 Tips:
   * port is default for Telnet server: 23
   * number in the prompt shows available heap
   * server is written with coroutines - it is the only working way for me to eliminate nasty memory leak with server example from docs
+  * use only needed plugins - now it has one file for one command and you can see all supported commands by `ls` (if you have ls plugin installed)
 
 #### Wget module - HTTP/HTTPS file downloader
 ```
