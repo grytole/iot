@@ -1,7 +1,7 @@
 -- tail
 return function( filename, numlines )
-  local numlines = tonumber( numlines ) or 10
-  if not filename or numlines < 1 then
+  local numlines = numlines or 10
+  if not filename or not tonumber( numlines ) or tonumber( numlines ) < 1 then
     coroutine.yield( "Usage: tail FILE [NUMLINES]\n" )
   elseif not file.exists( filename ) then
     coroutine.yield( string.format( "File '%s' does not exist\n", filename ) )
@@ -19,7 +19,7 @@ return function( filename, numlines )
     for i = 1, lines do
       local line = file.readline()
       if line then
-        if i > lines - numlines then
+        if i > lines - tonumber( numlines ) then
           coroutine.yield( line )
         end
       else
