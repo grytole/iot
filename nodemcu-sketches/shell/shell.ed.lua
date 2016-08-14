@@ -19,10 +19,11 @@ return function( filename )
   end
 
   local parse = function( req )
-    local cmdfilter = "#=acdefhijlnpPqstuwxy"
+    local cmdfilter = "#=acdefhijlmnpPqstuwxy"
     local rangefilter = "%d,%%%.%$%+%-;"
     local addrfilter = "%d%+%-%.%$"
-    local range, cmd, param = req:match( "^([" .. rangefilter .. "]*)([" .. cmdfilter .. "]?)(.-)$" )
+    local range, cmd, param = string.match( req, "^([" .. rangefilter .. "]*)([" .. cmdfilter .. "]?)(.-)$" )
+    param = string.gsub( param, "^%s*(.-)%s*$", "%1" )
     if cmd == "" then
       cmd = "p"
       if range == "" then
@@ -32,20 +33,28 @@ return function( filename )
       range = tostring( #state.buffer )
     elseif cmd == "j" and range == "" then
       range = tostring( state.curraddr ) .. "," .. tostring( state.curraddr + 1 )
+    elseif cmd == "m" and param == "" then
+      param = state.curraddr
+    elseif cmd == "t" and param == "" then
+      param = state.curraddr
     end
-    range = range:gsub( "^[,%%;]$", {
+    range = string.gsub( range, "^[,%%;]$", {
       [ "," ] = "1," .. #state.buffer,
       [ "%" ] = "1," .. #state.buffer,
       [ ";" ] = state.curraddr .. "," .. #state.buffer,
     } )
-    local addrfrom, addrto = range:match( "^([" .. addrfilter .. "]*),?([" .. addrfilter .. "]-)$" )
-    addrfrom = addrfrom:gsub( "^[%.%$]?$", {
+    local addrfrom, addrto = string.match( range, "^([" .. addrfilter .. "]*),?([" .. addrfilter .. "]-)$" )
+    addrfrom = string.gsub( addrfrom, "^[%.%$]?$", {
       [ "" ] = state.curraddr,
       [ "." ] = state.curraddr,
       [ "$" ] = #state.buffer,
     } )
-    addrto = addrto:gsub( "^[%.%$]?$", {
+    addrto = string.gsub( addrto, "^[%.%$]?$", {
       [ "" ] = addrfrom,
+      [ "." ] = state.curraddr,
+      [ "$" ] = #state.buffer,
+    } )
+    param = string.gsub( param, "^[%.%$]$", {
       [ "." ] = state.curraddr,
       [ "$" ] = #state.buffer,
     } )
@@ -116,12 +125,11 @@ return function( filename )
       elseif cmd == "e" then
         state.response = ""
         state.buffer = {}
-        local filename = param:gsub( "^%s*(.-)%s*$", "%1" )
-        if filename == "" then
+        if param == "" then
           state.filename = "noname.ed"
         else
           local done = false
-          file.open( filename, "r" )
+          file.open( param, "r" )
           while not done do
             local line = file.readline()
             if line then
@@ -132,18 +140,17 @@ return function( filename )
             end
           end
           file.close()
-          state.response = file.list()[ filename ] .. "\n"
-          state.filename = filename
+          state.response = file.list()[ param ] .. "\n"
+          state.filename = param
         end
         state.curraddr = #state.buffer
 
       elseif cmd == "f" then
         state.response = ""
-        local filename = param:gsub( "^%s*(.-)%s*$", "%1" )
-        if filename == "" then
+        if param == "" then
           state.response = state.filename .. "\n"
         else
-          state.filename = filename
+          state.filename = param
         end
 
       elseif cmd == "h" then
@@ -155,7 +162,7 @@ return function( filename )
 
       elseif cmd == "j" then
         state.response = ""
-        if addrfrom < 0 or addrto < 0 or addrfrom > #state.buffer or addrfrom >= addrto then
+        if addrfrom <= 0 or addrto <= 0 or addrfrom > #state.buffer or addrfrom >= addrto then
           state.response = "?\n"
           state.lasterr = "Wrong address\n"
         else
@@ -169,25 +176,66 @@ return function( filename )
 
       elseif cmd == "l" or cmd == "n" or cmd == "p" then
         state.response = ""
-        if addrfrom < 0 or addrto < 0 or addrfrom > #state.buffer or addrfrom > addrto then
+        if addrfrom <= 0 or addrto <= 0 or addrfrom > #state.buffer or addrfrom > addrto then
           state.response = "?\n"
           state.lasterr = "Wrong address\n"
         else
+          coroutine.yield( esc() )
           for i = addrfrom, addrto do
               if cmd == "l" then
-                coroutine.yield( string.format( "%s%s$\n%s", esc(), state.buffer[ i ]:gsub( "(%$)", "\\$" ), esc( "y" ) ) )
+                coroutine.yield( string.format( "%s$\n", string.gsub( state.buffer[ i ], "(%$)", "\\$" ) ) )
               elseif cmd == "n" then
-                coroutine.yield( string.format( "%s%4d\t%s\n%s", esc(), i, state.buffer[ i ], esc( "y" ) ) )
+                coroutine.yield( string.format( "%4d\t%s\n", i, state.buffer[ i ] ) )
               elseif cmd == "p" then
-                coroutine.yield( string.format( "%s%s\n%s", esc(), state.buffer[ i ], esc( "y" ) ) )
+                coroutine.yield( string.format( "%s\n", state.buffer[ i ] ) )
               end
           end
+          coroutine.yield( esc( "y" ) )
           state.curraddr = addrto
         end
 
-      elseif cmd == "m" then
-        state.response = "?\n"
-        state.lasterr = "TODO\n"
+      elseif cmd == "m" or cmd == "t" then
+        state.response = ""
+        local dest = tonumber( param )
+        if addrfrom <= 0 or addrto <= 0 or addrfrom > #state.buffer or addrfrom > addrto then
+          state.response = "?\n"
+          state.lasterr = "Wrong address\n"
+        elseif not dest or dest < 0 or dest > #state.buffer then
+          state.response = "?\n"
+          state.lasterr = "Wrong destination\n"
+        else
+          local buf = {}
+          if cmd == "t" then
+            for i = addrfrom, addrto do
+              table.insert( buf, state.buffer[ i ] )
+            end
+            for i = 1, #buf do
+              table.insert( state.buffer, dest + i, buf[ i ] )
+            end
+            state.curraddr = dest + #buf
+          elseif cmd == "m" then
+            if dest < addrfrom - 1 then
+              for i = addrfrom, addrto do
+                table.insert( buf, table.remove( state.buffer, addrfrom ) )
+              end
+              for i = 1, #buf do
+                table.insert( state.buffer, dest + i, buf[ i ] )
+              end
+              state.curraddr = dest + #buf
+            elseif dest > addrto then
+              for i = addrfrom, addrto do
+                table.insert( buf, table.remove( state.buffer, addrfrom ) )
+              end
+              for i = 1, #buf do
+                table.insert( state.buffer, dest + i - #buf, buf[ i ] )
+              end
+              state.curraddr = dest
+            else
+              state.response = "?\n"
+              state.lasterr = "Makes no change\n"
+            end
+          end
+        end
 
       elseif cmd == "P" then
         state.response = ""
@@ -204,16 +252,6 @@ return function( filename )
       elseif cmd == "s" then
         state.response = "?\n"
         state.lasterr = "TODO\n"
-
-      elseif cmd == "t" then
-        state.response = ""
-        if addrfrom < 0 or addrto < 0 or addrfrom > #state.buffer or addrfrom > addrto then
-          state.response = "?\n"
-          state.lasterr = "Wrong address\n"
-        else
-          state.response = "?\n"
-          state.lasterr = "TODO\n"
-        end
 
       elseif cmd == "u" then
         state.response = "?\n"
