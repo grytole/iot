@@ -21,10 +21,13 @@ return function( filename )
     nofilename = "No current filename\n",
     invaddr = "Invalid address\n",
     invdest = "Invalid destination\n",
+    invsuffix = "Invalid command suffix\n",
     nochange = "Makes no change\n",
-    cutempty = "Cut buffer is empty\n",
+    cutempty = "Nothing to put\n",
     unknown = "Unknown command\n",
-    unsaved = "Unsaved changes\n",
+    unsaved = "Warning: file modified\n",
+    nopattern = "No previous pattern\n",
+    nomatch = "No match\n",
   }
 
   local esc = function( arg )
@@ -33,8 +36,13 @@ return function( filename )
     return "\027[" .. code .. "m"
   end
 
+  local seterror = function( desc )
+    state.lasterr = desc
+    state.response = state.explanation and "?\n" .. state.lasterr or "?\n"
+  end
+
   local parse = function( req )
-    local cmdfilter = "#=acdeEfhHijlmnpPqQstuwWxy"
+    local cmdfilter = "#=acdeEfhHijlmnpPqQrstuwWxy"
     local rangefilter = "%d,%%%.%$%+%-;"
     local addrfilter = "%d%+%-%.%$"
     local range, cmd, param = string.match( req, "^([" .. rangefilter .. "]*)([" .. cmdfilter .. "]?)(.-)$" )
@@ -48,6 +56,8 @@ return function( filename )
       range = tostring( #state.buffer )
     elseif cmd == "j" and range == "" then
       range = tostring( state.curraddr ) .. "," .. tostring( state.curraddr + 1 )
+    elseif cmd == "r" and range == "" then
+      range = tostring( #state.buffer )
     elseif ( cmd == "w" or cmd == "W" ) and range == "" then
       range = "1," .. tostring( #state.buffer )
     elseif ( cmd == "m" or cmd == "t" ) and param == "" then
@@ -80,11 +90,12 @@ return function( filename )
     if not file.exists( filename ) then
       coroutine.yield( filename .. ": " .. err.nofile )
     else
-      local done = false
+      local done, bytes = false, 0
       file.open( filename, "r" )
       while not done do
         local line = file.readline()
         if line then
+          bytes = bytes + #line
           line = string.gsub( line, "\n", "" )
           table.insert( state.buffer, line )
         else
@@ -92,7 +103,7 @@ return function( filename )
         end
       end
       file.close()
-      coroutine.yield( file.list()[ filename ] .. "\n" )
+      coroutine.yield( bytes .. "\n" )
     end
     state.curraddr = #state.buffer
     state.filename = filename
@@ -115,11 +126,9 @@ return function( filename )
       elseif cmd == "a" or cmd == "c" or cmd == "i" then
         state.response = ""
         if addrfrom < 0 or addrto < 0 or addrto > #state.buffer or addrfrom > addrto then
-          state.lasterr = err.invaddr
-          state.response = state.explanation and state.lasterr or "?\n"
+          seterror( err.invaddr )
         elseif cmd ~= "a" and ( addrfrom == 0 or addrto == 0 ) then
-          state.lasterr = err.invaddr
-          state.response = state.explanation and state.lasterr or "?\n"
+          seterror( err.invaddr )
         else
           local done, i = false, addrto
           if cmd == "a" then
@@ -148,8 +157,7 @@ return function( filename )
       elseif cmd == "d" then
         state.response = ""
         if addrfrom < 0 or addrto < 0 or addrto > #state.buffer or addrfrom > addrto then
-          state.lasterr = err.invaddr
-          state.response = state.explanation and state.lasterr or "?\n"
+          seterror( err.invaddr )
         else
           state.cutbuffer = {}
           for _ = addrfrom, addrto do
@@ -164,21 +172,21 @@ return function( filename )
           state.warned = false
         end
 
-      elseif cmd == "e" then
+      elseif cmd == "e" or cmd == "E" then
         state.response = ""
         state.buffer = {}
         if param == "" then
           param = state.filename
         end
         if not file.exists( param ) then
-          state.lasterr = param .. ": " .. err.nofile
-          state.response = state.explanation and state.lasterr or "?\n"
+          seterror( param .. ": " .. err.nofile )
         else
-          local done = false
+          local done, bytes = false, 0
           file.open( param, "r" )
           while not done do
             local line = file.readline()
             if line then
+              bytes = bytes + #line
               line = string.gsub( line, "\n", "" )
               table.insert( state.buffer, line )
             else
@@ -186,7 +194,7 @@ return function( filename )
             end
           end
           file.close()
-          state.response = file.list()[ param ] .. "\n"
+          state.response = bytes .. "\n"
           state.filename = param
           state.changed = false
           state.warned = false
@@ -197,8 +205,7 @@ return function( filename )
         state.response = ""
         if param == "" then
           if state.filename == "" then
-            state.lasterr = err.nofilename
-            state.response = state.explanation and state.lasterr or "?\n"
+            seterror( err.nofilename )
           else
             state.response = state.filename .. "\n"
           end
@@ -216,8 +223,7 @@ return function( filename )
       elseif cmd == "j" then
         state.response = ""
         if addrfrom <= 0 or addrto <= 0 or addrto > #state.buffer or addrfrom >= addrto then
-          state.lasterr = err.invaddr
-          state.response = state.explanation and state.lasterr or "?\n"
+          seterror( err.invaddr )
         else
           state.cutbuffer = {}
           for _ = addrfrom, addrto do
@@ -232,15 +238,14 @@ return function( filename )
       elseif cmd == "l" or cmd == "n" or cmd == "p" then
         state.response = ""
         if addrfrom <= 0 or addrto <= 0 or addrto > #state.buffer or addrfrom > addrto then
-          state.lasterr = err.invaddr
-          state.response = state.explanation and state.lasterr or "?\n"
+          seterror( err.invaddr )
         else
           coroutine.yield( esc() )
           for i = addrfrom, addrto do
               if cmd == "l" then
                 coroutine.yield( string.format( "%s$\n", string.gsub( state.buffer[ i ], "(%$)", "\\$" ) ) )
               elseif cmd == "n" then
-                coroutine.yield( string.format( "%4d\t%s\n", i, state.buffer[ i ] ) )
+                coroutine.yield( string.format( "%d\t%s\n", i, state.buffer[ i ] ) )
               else
                 coroutine.yield( string.format( "%s\n", state.buffer[ i ] ) )
               end
@@ -253,11 +258,9 @@ return function( filename )
         state.response = ""
         local dest = tonumber( param )
         if addrfrom <= 0 or addrto <= 0 or addrto > #state.buffer or addrfrom > addrto then
-          state.lasterr = err.invaddr
-          state.response = state.explanation and state.lasterr or "?\n"
+          seterror( err.invaddr )
         elseif not dest or dest < 0 or dest > #state.buffer then
-          state.lasterr = err.invdest
-          state.response = state.explanation and state.lasterr or "?\n"
+          seterror( err.invdest )
         else
           local buf = {}
           if cmd == "t" then
@@ -292,8 +295,7 @@ return function( filename )
               state.changed = true
               state.warned = false
             else
-              state.lasterr = err.nochange
-              state.response = state.explanation and state.lasterr or "?\n"
+              seterror( err.nochange )
             end
           end
         end
@@ -307,8 +309,7 @@ return function( filename )
           state.response = nil
           done = true
         else
-          state.lasterr = err.unsaved
-          state.response = state.explanation and state.lasterr or "?\n"
+          seterror( err.unsaved )
           state.warned = true
         end
 
@@ -317,26 +318,22 @@ return function( filename )
         done = true
 
       elseif cmd == "r" then
-        state.lasterr = "TODO\n"
-        state.response = state.explanation and state.lasterr or "?\n"
+        seterror( "TODO\n" )
 
       elseif cmd == "s" then
-        state.lasterr = "TODO\n"
-        state.response = state.explanation and state.lasterr or "?\n"
+        seterror( "TODO\n" )
 
       elseif cmd == "u" then
-        state.lasterr = "TODO\n"
-        state.response = state.explanation and state.lasterr or "?\n"
+        seterror( "TODO\n" )
 
       elseif cmd == "w" or cmd == "W" then
         state.response = ""
         if addrfrom <= 0 or addrto <= 0 or addrto > #state.buffer or addrfrom > addrto then
-          state.lasterr = err.invaddr
-          state.response = state.explanation and state.lasterr or "?\n"
+          seterror( err.invaddr )
         elseif param == "" and state.filename == "" then
-          state.lasterr = err.nofilename
-          state.response = state.explanation and state.lasterr or "?\n"
+          seterror( err.nofilename )
         else
+          local bytes = 0
           if param == "" then
             param = state.filename
           else
@@ -350,21 +347,23 @@ return function( filename )
             file.open( param, "a+" )
           end
           for i = addrfrom, addrto  do
+            bytes = bytes + #state.buffer[ i ] + 1
             file.writeline( state.buffer[ i ] )
           end
           file.close()
-          state.changed = false
+          state.response = bytes .. "\n"
+          if addrfrom == 1 and addrto == #state.buffer then
+            state.changed = false
+          end
           state.warned = false
         end
 
       elseif cmd == "x" then
         state.response = ""
         if addrto < 0 or addrto > #state.buffer then
-          state.lasterr = err.invaddr
-          state.response = state.explanation and state.lasterr or "?\n"
+          seterror( err.invaddr )
         elseif #state.cutbuffer == 0 then
-          state.lasterr = err.cutempty
-          state.response = state.explanation and state.lasterr or "?\n"
+          seterror( err.cutempty )
         else
           for i = 1, #state.cutbuffer do
             table.insert( state.buffer, addrto + i, state.cutbuffer[ i ] )
@@ -377,8 +376,7 @@ return function( filename )
       elseif cmd == "y" then
         state.response = ""
         if addrfrom < 0 or addrto < 0 or addrto > #state.buffer or addrfrom > addrto then
-          state.lasterr = err.invaddr
-          state.response = state.explanation and state.lasterr or "?\n"
+          seterror( err.invaddr )
         else
           state.cutbuffer = {}
           for i = addrfrom, addrto do
@@ -387,8 +385,7 @@ return function( filename )
         end
 
       else
-        state.lasterr = err.unknown
-        state.response = state.explanation and state.lasterr or "?\n"
+        seterror( err.unknown )
 
       end
     else
