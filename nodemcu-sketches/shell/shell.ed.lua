@@ -319,7 +319,39 @@ return function( filename )
         end
 
       elseif cmd == "r" then
-        seterror( "TODO\n" )
+        state.response = ""
+        if param == "" then
+          param = state.filename
+        end
+        if param == "" then
+          seterror( err.nofilename )
+        elseif not file.exists( param ) then
+          seterror( param .. ": " .. err.nofile )
+        elseif addrto < 0 or addrto > #state.buffer then
+          seterror( err.invaddr )
+        else
+          local done, bytes = false, 0
+          file.open( param, "r" )
+          while not done do
+            local line = file.readline()
+            if line then
+              addrto = addrto + 1
+              bytes = bytes + #line
+              line = string.gsub( line, "\n", "" )
+              table.insert( state.buffer, addrto, line )
+            else
+              done = true
+            end
+          end
+          file.close()
+          state.response = bytes .. "\n"
+          if state.filename == "" then
+            state.filename = param
+          end
+          state.changed = true
+          state.warned = false
+          state.curraddr = addrto
+        end
 
       elseif cmd == "s" then
         seterror( "TODO\n" )
