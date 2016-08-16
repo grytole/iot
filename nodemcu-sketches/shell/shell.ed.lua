@@ -174,32 +174,37 @@ return function( filename )
 
       elseif cmd == "e" or cmd == "E" then
         state.response = ""
-        state.buffer = {}
-        if param == "" then
-          param = state.filename
-        end
-        if not file.exists( param ) then
-          seterror( param .. ": " .. err.nofile )
+        if cmd == "e" and state.changed and not state.warned then
+          seterror( err.unsaved )
+          state.warned = true
         else
-          local done, bytes = false, 0
-          file.open( param, "r" )
-          while not done do
-            local line = file.readline()
-            if line then
-              bytes = bytes + #line
-              line = string.gsub( line, "\n", "" )
-              table.insert( state.buffer, line )
-            else
-              done = true
-            end
+          state.buffer = {}
+          if param == "" then
+            param = state.filename
           end
-          file.close()
-          state.response = bytes .. "\n"
-          state.filename = param
-          state.changed = false
-          state.warned = false
+          if not file.exists( param ) then
+            seterror( param .. ": " .. err.nofile )
+          else
+            local done, bytes = false, 0
+            file.open( param, "r" )
+            while not done do
+              local line = file.readline()
+              if line then
+                bytes = bytes + #line
+                line = string.gsub( line, "\n", "" )
+                table.insert( state.buffer, line )
+              else
+                done = true
+              end
+            end
+            file.close()
+            state.response = bytes .. "\n"
+            state.filename = param
+            state.changed = false
+            state.warned = false
+          end
+          state.curraddr = #state.buffer
         end
-        state.curraddr = #state.buffer
 
       elseif cmd == "f" then
         state.response = ""
@@ -304,18 +309,14 @@ return function( filename )
         state.response = ""
         state.prompt = not state.prompt
 
-      elseif cmd == "q" then
-        if state.warned or not state.changed then
-          state.response = nil
-          done = true
-        else
+      elseif cmd == "q" or cmd == "Q" then
+        if cmd == "q" and state.changed and not state.warned then
           seterror( err.unsaved )
           state.warned = true
+        else
+          state.response = nil
+          done = true
         end
-
-      elseif cmd == "Q" then
-        state.response = nil
-        done = true
 
       elseif cmd == "r" then
         seterror( "TODO\n" )
