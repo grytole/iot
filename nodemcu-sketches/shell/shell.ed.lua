@@ -10,6 +10,8 @@ return function( filename )
     buffer = {},
     cutbuffer = {},
     curraddr = 0,
+    lastsearch = "",
+    lastsubst = "",
     prompt = false,
     explanation = false,
     warned = false,
@@ -41,12 +43,57 @@ return function( filename )
     state.response = state.explanation and "?\n" .. state.lasterr or "?\n"
   end
 
+  local search = function( retype, re )
+    local repeated = false
+    if re == "" then
+      re = state.lastsearch
+      repeated = true
+    end
+    if re == "" then
+      return ""
+    else
+      local from, to, iter
+      state.lastsearch = re
+      if retype == "/" then
+        if repeated then
+          from, to, iter = 1, #state.buffer, 1
+        else
+          from, to, iter = 0, #state.buffer - 1, 1
+        end
+      else
+        if repeated then
+          from, to, iter = #state.buffer - 1, 0, -1
+        else
+          from, to, iter = #state.buffer, 1, -1
+        end
+      end
+      for i = from, to, iter do
+        local linenum = ( ( i + state.curraddr - 1 ) % #state.buffer ) + 1
+        if string.match( state.buffer[ linenum ], re ) then
+          return linenum
+        end
+      end
+      return ""
+    end
+  end
+
   local parse = function( req )
-    local cmdfilter = "#=acdeEfhHijlmnpPqQrstuwWxy"
-    local rangefilter = "%d,%%%.%$%+%-;"
-    local addrfilter = "%d%+%-%.%$"
-    local range, cmd, param = string.match( req, "^([" .. rangefilter .. "]*)([" .. cmdfilter .. "]?)(.-)$" )
+    local failure = false
+    local cmdfilter = "([#=acdeEfhHijlmnpPqQrstuwWxy]?)"
+    local rangefilter = "([%d,%%%.%$%+%-;]*)"
+    local retype = string.match( req, "^[/%?]" )
+    if retype then
+      rangefilter = "[/%?]([^/%?%c]*)[/%?]?"
+    end
+    local range, cmd, param = string.match( req, "^" .. rangefilter .. cmdfilter .. "(.-)$" )
     param = string.gsub( param, "^%s*(.-)%s*$", "%1" )
+    if retype then
+      range = search( retype, range )
+      if range == "" then
+        failure = true
+        seterror( err.nomatch )
+      end
+    end
     if cmd == "" then
       cmd = "p"
       if range == "" then
@@ -68,7 +115,7 @@ return function( filename )
       [ "%" ] = "1," .. #state.buffer,
       [ ";" ] = state.curraddr .. "," .. #state.buffer,
     } )
-    local addrfrom, addrto = string.match( range, "^([" .. addrfilter .. "]*),?([" .. addrfilter .. "]-)$" )
+    local addrfrom, addrto = string.match( range, "^([%d%+%-%.%$]*),?([%d%+%-%.%$]-)$" )
     addrfrom = string.gsub( addrfrom, "^[%.%$]?$", {
       [ "" ] = state.curraddr,
       [ "." ] = state.curraddr,
@@ -83,7 +130,7 @@ return function( filename )
       [ "." ] = state.curraddr,
       [ "$" ] = #state.buffer,
     } )
-    return tonumber( addrfrom ), tonumber( addrto ), cmd, param
+    return failure, tonumber( addrfrom ), tonumber( addrto ), cmd, param
   end
 
   if filename then
@@ -114,17 +161,19 @@ return function( filename )
   while not done do
     if state.response ~= "" then state.response = esc() .. state.response .. esc( "y" ) end
     state.request = coroutine.yield( state.response )
-    if state.request then
-      local addrfrom, addrto, cmd, param = parse( state.request )
+    state.response = ""
 
-      if cmd == "#" then
-        state.response = ""
+    if state.request then
+      local failure, addrfrom, addrto, cmd, param = parse( state.request )
+
+      if failure then
+
+      elseif cmd == "#" then
 
       elseif cmd == "=" then
         state.response = addrto .. "\n"
 
       elseif cmd == "a" or cmd == "c" or cmd == "i" then
-        state.response = ""
         if addrfrom < 0 or addrto < 0 or addrto > #state.buffer or addrfrom > addrto then
           seterror( err.invaddr )
         elseif cmd ~= "a" and ( addrfrom == 0 or addrto == 0 ) then
@@ -155,7 +204,6 @@ return function( filename )
         end
 
       elseif cmd == "d" then
-        state.response = ""
         if addrfrom < 0 or addrto < 0 or addrto > #state.buffer or addrfrom > addrto then
           seterror( err.invaddr )
         else
@@ -173,7 +221,6 @@ return function( filename )
         end
 
       elseif cmd == "e" or cmd == "E" then
-        state.response = ""
         if cmd == "e" and state.changed and not state.warned then
           seterror( err.unsaved )
           state.warned = true
@@ -207,7 +254,6 @@ return function( filename )
         end
 
       elseif cmd == "f" then
-        state.response = ""
         if param == "" then
           if state.filename == "" then
             seterror( err.nofilename )
@@ -222,11 +268,9 @@ return function( filename )
         state.response = state.lasterr
 
       elseif cmd == "H" then
-        state.response = ""
         state.explanation = not state.explanation
 
       elseif cmd == "j" then
-        state.response = ""
         if addrfrom <= 0 or addrto <= 0 or addrto > #state.buffer or addrfrom >= addrto then
           seterror( err.invaddr )
         else
@@ -241,7 +285,6 @@ return function( filename )
         end
 
       elseif cmd == "l" or cmd == "n" or cmd == "p" then
-        state.response = ""
         if addrfrom <= 0 or addrto <= 0 or addrto > #state.buffer or addrfrom > addrto then
           seterror( err.invaddr )
         else
@@ -260,7 +303,6 @@ return function( filename )
         end
 
       elseif cmd == "m" or cmd == "t" then
-        state.response = ""
         local dest = tonumber( param )
         if addrfrom <= 0 or addrto <= 0 or addrto > #state.buffer or addrfrom > addrto then
           seterror( err.invaddr )
@@ -306,7 +348,6 @@ return function( filename )
         end
 
       elseif cmd == "P" then
-        state.response = ""
         state.prompt = not state.prompt
 
       elseif cmd == "q" or cmd == "Q" then
@@ -319,7 +360,6 @@ return function( filename )
         end
 
       elseif cmd == "r" then
-        state.response = ""
         if param == "" then
           param = state.filename
         end
@@ -360,7 +400,6 @@ return function( filename )
         seterror( "TODO\n" )
 
       elseif cmd == "w" or cmd == "W" then
-        state.response = ""
         if addrfrom <= 0 or addrto <= 0 or addrto > #state.buffer or addrfrom > addrto then
           seterror( err.invaddr )
         elseif param == "" and state.filename == "" then
@@ -392,7 +431,6 @@ return function( filename )
         end
 
       elseif cmd == "x" then
-        state.response = ""
         if addrto < 0 or addrto > #state.buffer then
           seterror( err.invaddr )
         elseif #state.cutbuffer == 0 then
@@ -407,7 +445,6 @@ return function( filename )
         end
 
       elseif cmd == "y" then
-        state.response = ""
         if addrfrom < 0 or addrto < 0 or addrto > #state.buffer or addrfrom > addrto then
           seterror( err.invaddr )
         else
@@ -421,8 +458,6 @@ return function( filename )
         seterror( err.unknown )
 
       end
-    else
-      state.response = ""
     end
   end
 end
