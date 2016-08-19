@@ -36,7 +36,8 @@ pi = tg.pi
 dofile("shell.lua")
 ```
 Supported commands:
-  * `ls` - lists files stored on flash with their size, also provides summary for file system
+  * `ls` - lists files stored on flash with their size
+  * `df` - provides summary for file system
   * `cat FILENAME` - prints contents of file FILENAME
   * `head FILENAME [NUMLINES]` - prints first NUMLINES lines (default is 10) of file FILENAME
   * `tail FILENAME [NUMLINES]` - prints last NUMLINES lines (default is 10) of file FILENAME
@@ -46,6 +47,7 @@ Supported commands:
   * `grep REGEXP [FILENAME]` - searches lua-style REGEXP pattern in file FILENAME (FILENAME supports wildcards and defaults to `*`)
   * `whoami` - shows device params (ip settings, MAC address, NodeMCU version, chip id, flash size)
   * `iw CMD [ARG1 [ARG2]]` - Wi-Fi tool. 'scan' as CMD starts AP search (`iw scan`). 'connect' as CMD tries to connect to AP (`iw connect ssid password`).
+  * `luac FILENAME` - compiles `.lua` source file into `.lc` file
   * `reboot` - reboots device
 
 Tips:
