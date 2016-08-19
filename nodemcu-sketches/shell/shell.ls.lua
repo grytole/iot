@@ -8,11 +8,11 @@ return function()
   for name, size in pairs( file.list() ) do
     if name:match( "^shell.-%.lua$" ) then
       name = esc( "c" ) .. name .. esc()
+    elseif name:match( "^shell.-%.lc$" ) then
+      name = esc( "m" ) .. name .. esc()
     elseif name:match( "^init.lua$" ) then
       name = esc( "y" ) .. name .. esc()
     end
     coroutine.yield( string.format( "%7d %s\n", size, name ) )
   end
-  local left, used, _ = file.fsinfo()
-  coroutine.yield( string.format( "\n%7d used\n%7d left\n", used, left ) )
 end
