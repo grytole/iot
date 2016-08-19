@@ -19,11 +19,14 @@ do
     if not argv[ 1 ] then
       return
     else
-      local plugin = "shell." .. argv[ 1 ] .. ".lua"
-      if not file.exists( plugin ) then
-        coroutine.yield( "Unknown command\n" )
+      local luaplugin = "shell." .. argv[ 1 ] .. ".lua"
+      local lcplugin = "shell." .. argv[ 1 ] .. ".lc"
+      if file.exists( lcplugin ) then
+        dofile( lcplugin )( argv[ 2 ], argv[ 3 ], argv[ 4 ] )
+      elseif file.exists( luaplugin ) then
+        dofile( luaplugin )( argv[ 2 ], argv[ 3 ], argv[ 4 ] )
       else
-        dofile( plugin )( argv[ 2 ], argv[ 3 ], argv[ 4 ] )
+        coroutine.yield( "Unknown command\n" )
       end
     end
   end
