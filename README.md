@@ -49,6 +49,7 @@ Supported commands:
   * `iw CMD [ARG1 [ARG2]]` - Wi-Fi tool. 'scan' as CMD starts AP search (`iw scan`). 'connect' as CMD tries to connect to AP (`iw connect ssid password`).
   * `luac FILENAME` - compiles `.lua` source file into `.lc` file
   * `reboot` - reboots device
+  * `ed [FILENAME]` - ed text editor ( `Q<return>` to leave :) - get a cheatsheet if you don't know it good enough )
 
 Tips:
   * port is default for Telnet server: 23
