@@ -50,6 +50,7 @@ Supported commands:
   * `luac FILENAME` - compiles `.lua` source file into `.lc` file
   * `reboot` - reboots device
   * `ed [FILENAME]` - ed text editor ( `Q<return>` to leave :) - get a cheatsheet if you don't know it good enough )
+  * `passwd [USERNAME]` - changes passwords, adds (when selecting unexistent user) and deletes (when setting empty password) users.
 
 Tips:
   * port is default for Telnet server: 23
