@@ -44,17 +44,42 @@ do
     return esc( "g" ) .. heap .." $ " .. esc()
   end
 
+  local cls = function()
+    return "\012"
+  end
+
+  local echo = function( enabled )
+    if enabled then
+      return "\255\252\001"
+    else
+      return "\255\251\001"
+    end
+  end
+
+  local cronfunc = function()
+    local luacrond = "crond.lua"
+    local lccrond = "crond.lc"
+    if file.exists( lccrond ) then
+      dofile( lccrond )()
+    elseif file.exists( luacrond ) then
+      dofile( luacrond )()
+    end
+  end
+
   local shellfunc = function( cmdline, auth )
     if not auth.authenticated then
       auth.username = cmdline
       coroutine.yield( "Password: " )
+      coroutine.yield( echo( false ) )
       local pass
       while not pass do
         pass = coroutine.yield( "" )
       end
+      coroutine.yield( echo( true ) )
       if auth.userlist[ auth.username ] == crypto.toHex( crypto.hash( "sha1", pass ) ) then
         auth.authenticated = true
         auth.userlist = {}
+        coroutine.yield( cls() )
       else
         coroutine.yield( "Authentication failed.\n" )
       end
@@ -65,13 +90,15 @@ do
       end
       if not argv[ 1 ] then
         return
+      elseif argv[ 1 ] == "exit" then
+        auth.authenticated = false
       else
         local luaplugin = "shell." .. argv[ 1 ] .. ".lua"
         local lcplugin = "shell." .. argv[ 1 ] .. ".lc"
         if file.exists( lcplugin ) then
-          dofile( lcplugin )( argv[ 2 ], argv[ 3 ], argv[ 4 ] )
+          dofile( lcplugin )( unpack( argv, 2 ) )
         elseif file.exists( luaplugin ) then
-          dofile( luaplugin )( argv[ 2 ], argv[ 3 ], argv[ 4 ] )
+          dofile( luaplugin )( unpack( argv, 2 ) )
         else
           coroutine.yield( "Unknown command\n" )
         end
@@ -85,6 +112,7 @@ do
     local respond = function( sc, req )
       local state, str = coroutine.resume( thread, req, auth )
       if state and str then
+        if str == "" then str = " \008" end
         sc:send( str )
       elseif not auth.authenticated then
         sc:close()
@@ -111,7 +139,7 @@ do
     end )
     readpassfile()
     if not auth.authenticated then
-      lc:send( "login as: " )
+      lc:send( string.format( "%slogin as: ", cls() ) )
     else
       lc:send( prompt() )
     end
